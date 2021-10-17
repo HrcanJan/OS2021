@@ -75,12 +75,34 @@ sys_sleep(void)
   return 0;
 }
 
-
 #ifdef LAB_PGTBL
 int
-sys_pgaccess(void)
-{
-  // lab pgtbl: your code here.
+sys_pgaccess(void){
+  uint64 page;
+  int npages;
+  uint64 bitmask; // user address
+  uint64 bitmask_kernel = 0;
+
+  if(argaddr(0, &page) < 0 || argint(1, &npages) < 0 || argaddr(2, &bitmask) < 0 )
+    return -1;
+
+  if(npages > 64){
+    printf("Too many pages. Returned %d pages. Max 64", npages);
+    exit(9);
+  }
+
+  for(int i = 0; i < npages; i++) {
+    pte_t *pte = walk(myproc()->pagetable, page, 0);
+    if(*pte & PTE_A && pte){
+      bitmask_kernel |= 1 << i;
+      *pte &= ~PTE_A;
+    }
+    page += PGSIZE;
+  }
+
+  if(copyout(myproc()->pagetable, bitmask, (char *) &bitmask_kernel, sizeof(bitmask_kernel)))
+    return -1;
+
   return 0;
 }
 #endif
@@ -107,3 +129,4 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
