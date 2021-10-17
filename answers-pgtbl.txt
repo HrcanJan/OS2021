@@ -1,0 +1,7 @@
+1. Fork will work faster now, because it has a similar structure to usyscall. When fork allocates user memory for the child process, the allocator returns the physical address of that memory; fork uses that address directly as a virtual address when it is copying the parent’s user memory to the child. Direct mapping simplifies kernel code that reads or writes physical memory.
+
+2. a) First it prints the primary 3 pages of the process’s user address space followed by its physical address. Then it prints the last digit, representing GB (256GB used by xv6). And lasty it prints the last 3 pages, trampoline, trapframe and usyscall, all with their id just below 512.
+b) Page 0 is a text, or programming code. 
+c) Page 2 is a stack.
+d) Data can be read-written while running in user mode.
+e) 3rd page from the end is Usyscall
