@@ -124,6 +124,7 @@ panic(char *s)
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;
+  backtrace();
 }
 
 void
@@ -131,4 +132,18 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
+}
+
+void
+backtrace(void){
+  printf("backtrace:\n");
+  
+  uint64 fp = r_fp(); // Pointer to start (pointer to last function)
+  uint64 end = PGROUNDUP(fp);
+  
+  while(fp < end){
+   uint64 retaddr = *(uint64 *)(fp - 8); // Return address
+   fp = *(uint64 *)(fp - 16); // Saved offset stack pointer
+   printf("%p\n", retaddr);
+   }
 }
