@@ -1,0 +1,7 @@
+1. Registers a2, a3, a4 and a5. Register a2 holds 13.
+2. It is in register a1.
+3. It is in 0x628.
+4. It is 30.
+5. Is is "HE110 World"
+5b. We need to set i to 726c64.
+6. It is the value of register a2.
