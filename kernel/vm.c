@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -303,28 +305,58 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
+      panic("uvmcopy: pte doesnt exist!");
     if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+      panic("uvmcopy: page doesnt exist!");
     pa = PTE2PA(*pte);
+    if(*pte & PTE_W){
+    	*pte &= ~PTE_W;
+    	*pte |= PTE_COW;
+    }
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
+      // kfree(mem);
       goto err;
     }
+    inc_ref(pa);
   }
   return 0;
 
- err:
+err:
   uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
+}
+
+int uvmcow(pagetable_t pagetable, uint64 addr){
+  pte_t *pte;
+  uint64 pa;
+  uint flags;
+  char *mem;
+  struct proc *p = myproc();
+  
+  // Make sure bytes don't exceed size process memory
+  if(addr >= p -> sz)
+    return -1;
+    
+  addr = PGROUNDDOWN(addr);
+  
+  // Check validity, PTE_w's existense and allocation in that order
+  if((pte = walk(pagetable, addr, 0)) == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_COW) == 0 || (mem = kalloc()) == 0)
+      return -1;
+  pa = PTE2PA(*pte);
+  flags = PTE_FLAGS(*pte);
+  flags |= PTE_W;
+  flags &= ~PTE_COW;
+  memmove(mem, (char*)pa, PGSIZE);
+  uvmunmap(pagetable, PGROUNDDOWN(addr), 1, 1);
+  if(mappages(pagetable, PGROUNDDOWN(addr), PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
+      return -1;
+    }
+  return 0;
 }
 
 // mark a PTE invalid for user access.
@@ -348,8 +380,25 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
 
+  if(dstva >= MAXVA)
+    return -1;
+
+  pte_t * pte = walk(pagetable, dstva, 0);
+
+  if(pte == 0)
+    return -1;
+  if(*pte & PTE_COW)
+    if(uvmcow(pagetable, dstva) < 0)
+      panic("copyout: uvmcow failure!\n");
+
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
+    if(va0 >= MAXVA)
+      return -1;
+    pte_t *pte = walk(pagetable, va0, 0);
+    if(*pte & PTE_COW)
+      if(uvmcow(pagetable, va0))
+         panic("copyout: uvmcow failure!\n");
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
