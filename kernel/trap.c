@@ -37,22 +37,18 @@ void
 usertrap(void)
 {
   int which_dev = 0;
-
   if((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
 
   // send interrupts and exceptions to kerneltrap(),
   // since we're now in the kernel.
   w_stvec((uint64)kernelvec);
-
   struct proc *p = myproc();
-  
+
   // save user program counter.
   p->trapframe->epc = r_sepc();
-  
   if(r_scause() == 8){
     // system call
-
     if(p->killed)
       exit(-1);
 
@@ -63,8 +59,11 @@ usertrap(void)
     // an interrupt will change sstatus &c registers,
     // so don't enable until done with those registers.
     intr_on();
-
     syscall();
+    } else if(r_scause() == 15){
+    	if(uvmcow(p->pagetable, r_stval()) != 0)
+    	  p->killed = 1;
+
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
@@ -77,9 +76,9 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
-
+  if(which_dev == 2){
+       yield();
+   }
   usertrapret();
 }
 
