@@ -1,0 +1,2 @@
+
+One thread does not have a problem pointing at a key. However, with two or more threads, because we are calling addresses with insert, threads will compete over the same key, resulting in roughly half of them being missing from the process. 
