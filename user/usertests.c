@@ -569,7 +569,7 @@ writetest(char *s)
   }
 }
 
-void
+/*void
 writebig(char *s)
 {
   int i, fd, n;
@@ -621,7 +621,7 @@ writebig(char *s)
     printf("%s: unlink big failed\n", s);
     exit(1);
   }
-}
+}*/
 
 // many creates, followed by unlink test
 void
@@ -2864,7 +2864,7 @@ main(int argc, char *argv[])
     {stacktest, "stacktest"},
     {opentest, "opentest"},
     {writetest, "writetest"},
-    {writebig, "writebig"},
+    //{writebig, "writebig"},
     {createtest, "createtest"},
     {openiputtest, "openiput"},
     {exitiputtest, "exitiput"},
